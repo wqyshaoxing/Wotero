@@ -330,6 +330,7 @@ import-options = 选项
 import-importing = 导入…
 import-create-collection =
     .label = 将导入的分类和条目放入新分类
+import-target-selected-collection = 导入的文献将添加到当前选中的分类。
 import-recreate-structure =
     .label = 将文件夹结构重建为分类
 import-fileTypes-header = 要导入的文件类型：

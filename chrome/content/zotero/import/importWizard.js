@@ -37,6 +37,7 @@ const { directAuth } = mendeleyAPIUtils;
 const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 	file: null,
 	folder: null,
+	hasSelectedCollection: false,
 	importAbortController: null,
 	isZotfileInstalled: false,
 	libraryID: null,
@@ -61,9 +62,16 @@ const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 	},
 
 	async init() {
-		const { mendeleyCode, libraryID, pageID, relinkOnly } = window.arguments[0].wrappedJSObject ?? {};
+		const {
+			mendeleyCode,
+			libraryID,
+			pageID,
+			relinkOnly,
+			hasSelectedCollection
+		} = window.arguments[0].wrappedJSObject ?? {};
 		
 		this.libraryID = libraryID;
+		this.hasSelectedCollection = !!hasSelectedCollection;
 		this.wizard = document.getElementById('import-wizard');
 		let fileHandlingEl = document.getElementById('file-handling');
 		let createCollectionEl = document.getElementById('create-collection');
@@ -82,6 +90,7 @@ const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 			.addEventListener('pageadvanced', this.onMendeleyOnlineAdvance.bind(this));
 		this.wizard.getPageById('page-options')
 			.addEventListener('pageshow', this.onOptionsPageShow.bind(this));
+		createCollectionEl.addEventListener('command', this.updateCollectionTargetNote.bind(this));
 		this.wizard.getPageById('page-options')
 			.addEventListener('pageadvanced', this.startImport.bind(this));
 		this.wizard.getPageById('page-progress')
@@ -126,12 +135,17 @@ const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 		this.mendeleyImporterVersion = parseInt((await Zotero.DB.valueQueryAsync("SELECT value FROM settings WHERE setting='mendeleyImport' AND key='version'")) || 0);
 
 		// Initialize controls on the options page with default or previously saved values
-		const shouldCreateCollection = Zotero.Prefs.prefHasUserValue('import.createCollection')
-			? Zotero.Prefs.get('import.createCollection')
-			: await this.getShouldCreateCollection();
+		// When a collection is selected, make it the import destination by default.
+		// The checkbox still allows users to create a separate collection instead.
+		const shouldCreateCollection = this.hasSelectedCollection
+			? false
+			: Zotero.Prefs.prefHasUserValue('import.createCollection')
+				? Zotero.Prefs.get('import.createCollection')
+				: await this.getShouldCreateCollection();
 		const fileHandling = Zotero.Prefs.get('import.fileHandling') ?? 'copy';
 		fileHandlingEl.value = fileHandling;
 		createCollectionEl.checked = shouldCreateCollection;
+		this.updateCollectionTargetNote();
 
 		if (relinkOnly) {
 			document.getElementById('relink-only-checkbox').checked = true;
@@ -447,6 +461,12 @@ const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 		Services.focus.moveFocus(window, null, Services.focus.MOVEFOCUS_FIRST, 0);
 	},
 
+	updateCollectionTargetNote() {
+		const createCollection = document.getElementById('create-collection').checked;
+		document.getElementById('selected-collection-note').hidden =
+			!this.hasSelectedCollection || createCollection;
+	},
+
 	async startImport() {
 		this.wizard.canAdvance = false;
 		this.wizard.canRewind = false;
@@ -466,7 +486,11 @@ const Zotero_Import_Wizard = { // eslint-disable-line no-unused-vars
 		const relinkOnly = document.getElementById('relink-only-checkbox').checked;
 
 		Zotero.Prefs.set('import.fileHandling', fileHandling);
-		Zotero.Prefs.set('import.createCollection', shouldCreateCollection);
+		// Don't persist the contextual default from a selected collection. A checked
+		// box is an explicit request to create a new collection and can be remembered.
+		if (!this.hasSelectedCollection || shouldCreateCollection) {
+			Zotero.Prefs.set('import.createCollection', shouldCreateCollection);
+		}
 		
 		try {
 			const result = await Zotero_File_Interface.importFile({

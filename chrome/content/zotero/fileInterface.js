@@ -386,15 +386,18 @@ var Zotero_File_Interface = new function () {
 	
 	this.showImportWizard = function (extraArgs = {}) {
 		var libraryID = Zotero.Libraries.userLibraryID;
+		var hasSelectedCollection = false;
 		try {
 			let zp = Zotero.getActiveZoteroPane();
 			libraryID = zp.getSelectedLibraryIDs()[0];
+			hasSelectedCollection = zp.getSelectedCollections().length > 0;
 		}
 		catch (e) {
 			Zotero.logError(e);
 		}
 		var args = {
 			libraryID,
+			hasSelectedCollection,
 			...extraArgs
 		};
 		args.wrappedJSObject = args;

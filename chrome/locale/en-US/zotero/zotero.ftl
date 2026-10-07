@@ -397,6 +397,7 @@ import-importing = Importing…
 
 import-create-collection =
     .label = Place imported collections and items into new collection
+import-target-selected-collection = Imported items will be added to the selected collection.
 
 import-recreate-structure =
     .label = Recreate folder structure as collections
